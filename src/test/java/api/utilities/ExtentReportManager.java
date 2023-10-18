@@ -2,69 +2,72 @@ package api.utilities;
 
 import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.ExtentTest;
+import com.aventstack.extentreports.Status;
 import com.aventstack.extentreports.reporter.ExtentSparkReporter;
-import lombok.Getter;
+import com.aventstack.extentreports.reporter.configuration.Theme;
+
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.testng.ITestContext;
 import org.testng.ITestListener;
+import org.testng.ITestResult;
 
 public class ExtentReportManager implements ITestListener{
 	
-    private ExtentSparkReporter extentHtmlReporter;
-    private ExtentReports report;
-    private Map<String,ExtentTest> tests = new HashMap<String, ExtentTest>();
-
-    public ExtentReportManager(ReportType reportType, ReportDetails reportDetails){
-        report = new ExtentReports();
-        attachReport(reportType, reportDetails);
+    public ExtentSparkReporter sparkReporter;
+    public ExtentReports extent;
+    public ExtentTest test;
+    String repName;
+    
+    public void onStart(ITestContext testContext)
+    {
+    	String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
+    	repName = "Test-Report-"+timeStamp+".html";
+    	sparkReporter = new ExtentSparkReporter(".\\reports\\"+repName);
+    	sparkReporter.config().setDocumentTitle("RestAssuredAutomationProject");
+    	sparkReporter.config().setReportName("Pet Store Users API");
+    	sparkReporter.config().setTheme(Theme.DARK);
+    	
+    	extent = new ExtentReports();
+    	extent.attachReporter(sparkReporter);
+    	extent.setSystemInfo("Application", "Pest Store Usewrs API");
+    	extent.setSystemInfo("Operating System", System.getProperty("os.name"));
+    	extent.setSystemInfo("User Name", System.getProperty("user.name"));
+    	extent.setSystemInfo("Environment", "QA");
+    	extent.setSystemInfo("user", "Ashw");
     }
-
-    private void attachReport(ReportType reportType, ReportDetails reportDetails) {
-        switch (reportType){
-            case HTML:
-                report.attachReporter(getHtmlReporter(reportDetails));
-        }
+    public void onTestFailure(ITestResult result)
+    {
+    	test = extent.createTest(result.getName());
+    	test.assignCategory(result.getMethod().getGroups());
+    	test.createNode(result.getName());
+    	test.log(Status.FAIL, "Test Failed");
+    	test.log(Status.FAIL, result.getThrowable().getMessage());
     }
-
-    public void addScreenShot(String testName,String imageFilePath) throws IOException {
-        ExtentTest extentTest = tests.get(testName);
-        extentTest.addScreenCaptureFromPath(imageFilePath);
+    public void onTestSuccess(ITestResult result)
+    {
+    	test = extent.createTest(result.getName());
+    	test.assignCategory(result.getMethod().getGroups());
+    	test.createNode(result.getName());
+    	test.log(Status.PASS, "Test Passed");
     }
-
-    public ExtentTest getTest(String testName){
-        return tests.get(testName);
+    public void onTestSkipped(ITestResult result)
+    {
+    	test = extent.createTest(result.getName());
+    	test.assignCategory(result.getMethod().getGroups());
+    	test.createNode(result.getName());
+    	test.log(Status.SKIP, "Test Skipped");
+    	test.log(Status.SKIP, result.getThrowable().getMessage());
     }
-
-    public ExtentTest setUpTest(){
-        Exception e = new Exception();
-        e.fillInStackTrace();
-        String testName = e.getStackTrace()[1].getMethodName();
-        ExtentTest test = report.createTest(testName);
-        tests.put(testName,test);
-        return tests.get(testName);
+    
+    public void onFinish(ITestContext testContext)
+    {
+    	extent.flush();
     }
-
-    private ExtentSparkReporter getHtmlReporter(ReportDetails reportDetails) {
-        String filePath = reportDetails.getReportFilePath() + ".html";
-        extentHtmlReporter = new ExtentSparkReporter(filePath);
-        // make the charts visible on report open
-        extentHtmlReporter.config().setChartVisibilityOnOpen(true);
-        extentHtmlReporter.config().setDocumentTitle(reportDetails.getDocumentTitle());
-        extentHtmlReporter.config().setReportName(reportDetails.getReportName());
-        extentHtmlReporter.config().setTheme(reportDetails.getTheme());
-        return extentHtmlReporter;
-    }
-
-    public void clearTests(){
-        tests.clear();
-        report.flush();
-    }
-
-    public enum ReportType{
-        HTML,
-    }
-
+    
 }
